@@ -30,5 +30,8 @@ test:
 .PHONY: git
 git:
 	git commit -m "`date`" -a
-	wait
-	@echo waited
+	@wait
+	git push
+	@wait
+	@echo Done!!!
+
