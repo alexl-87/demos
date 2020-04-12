@@ -30,3 +30,9 @@ test:
 .PHONY: git
 git:
 	git commit -m "`date`" -a
+	sleep 1
+	git push
+	sleep 1
+	alexl-87
+	sleep 1
+	afcu67rp
