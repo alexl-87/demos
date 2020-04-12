@@ -26,3 +26,7 @@ test:
 	sleep 0.2
 	clear
 	gdb ./maptest
+
+.PHONY: git
+git:
+	git commit -m "`date`" -a

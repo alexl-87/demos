@@ -1,7 +1,7 @@
 #include <stddef.h>
 #ifndef H_Hash
 #define H_Hash
-
+//
 enum exeStatus {OK, mallocE, paramE, hashingE, collision, True, False, exist};
 
 typedef enum 		exeStatus exeStatus;
