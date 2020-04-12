@@ -33,5 +33,5 @@ git:
 	@wait
 	git push
 	@wait
-	@echo Done!!!
+	@echo Git Done!!!
 
