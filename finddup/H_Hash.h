@@ -24,6 +24,7 @@ exeStatus 	findValue		(HMap* map, void* key, void** value);
 exeStatus 	forEach			(HMap* map, ForEachElem_u foreachFunc);
 exeStatus 	clearHMap 		(HMap* map);
 exeStatus 	destroyHMap 	(HMap* map);
+size_t 		get_noe			(HMap* map);
 size_t 		djb2			(void* key);/* djb2 set as default string 
 											 hashing algorithm in case NULL 
 											 parametr recieved as a user hash function
