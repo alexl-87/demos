@@ -3,21 +3,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 
-#define CAPACITY_INC_CONST 1.5
-exeStatus comparing(void* key_1, void* key_2);
+#define CAPACITY_INC_CONST 2
 exeStatus eachelem(void* key, void* value);
-
-
-//End of testing area
-
-static exeStatus probing(HMap* map, Element* element);
+static size_t probing(HMap* map, void* key, void** ret_key);
+static int are_equal(void* key_1, void* key_2);
 
 struct Element
 {
 	void* 		m_value;
 	void* 		m_key;
-	Element* 	m_next;
 };
 
 struct HMap
@@ -25,9 +21,10 @@ struct HMap
 	size_t		 	m_capacity;
 	size_t 			m_noe;
 	size_t 			m_collisions;
-	Element** 		m_bucket;
+	Element** 		m_buckets;
 	Hash_u 	 		m_hashFunc;
 	Compare_u	 	m_compareFunc;
+	char 			m_err_msg[32];
 };
 
 HMap* createHMap(size_t capacity, Hash_u hashFunc, Compare_u compareFunc)
@@ -37,14 +34,15 @@ HMap* createHMap(size_t capacity, Hash_u hashFunc, Compare_u compareFunc)
 	newmap = (HMap*)malloc(sizeof(HMap));
 	if (!newmap)
 	{
-		printf("Newmap error handling\n");
+		strcpy(newmap->m_err_msg, "memalloc failed: new map");
 	}
-	newmap->m_bucket = (Element**)calloc(capacity*CAPACITY_INC_CONST, sizeof(Element*));
+	newmap->m_buckets = (Element**)calloc(capacity*CAPACITY_INC_CONST, sizeof(Element*));
 
-	if (!newmap->m_bucket)
+	if (!newmap->m_buckets)
 	{
-		printf("Bucket error handling\n");
+		strcpy(newmap->m_err_msg, "memalloc failed: new buckets");
 		free(newmap);
+		newmap = NULL;
 
 	}else{
 		newmap->m_capacity = capacity*CAPACITY_INC_CONST;
@@ -60,27 +58,39 @@ HMap* createHMap(size_t capacity, Hash_u hashFunc, Compare_u compareFunc)
 exeStatus add_by_value(HMap* map, void* key, size_t key_size, void* value, size_t value_size)
 {
 
+	exeStatus retval = OK;
+	size_t index = -1;
+	void* ret_key = NULL;
 	Element* new_element = (Element*)malloc(sizeof(Element));
 	if (!new_element)
 	{
-		exit(1);
+		strcpy(map->m_err_msg, "memalloc failed: new element");
+		retval = memallocE;
 	}
-
-	new_element->m_value = malloc(value_size);
-	new_element->m_key = malloc(key_size);
-
-	if (!new_element->m_value || !new_element->m_key)
+	else
 	{
-		free(new_element->m_value);
-		free(new_element->m_key);
-		exit(1);
+
+		new_element->m_value = malloc(value_size);
+		new_element->m_key = malloc(key_size);
+
+		if (!new_element->m_value || !new_element->m_key)
+		{
+			strcpy(map->m_err_msg, "memalloc failed: new element");
+			retval = memallocE;
+			free(new_element->m_value);
+			free(new_element->m_key);
+			free(new_element);
+
+		}
+		else
+		{
+			memcpy(new_element->m_key, key, key_size);
+			memcpy(new_element->m_value, value, value_size);
+			index = probing(map, new_element->m_key, &ret_key);
+			map->m_buckets[index] = new_element;
+		}
 	}
-
-	memcpy(new_element->m_key, key, key_size);
-	memcpy(new_element->m_value, value, value_size);
-
-
-	return probing(map, new_element);
+	return retval;
 }
 
 exeStatus deleteValue(HMap* map, void* key)
@@ -101,17 +111,9 @@ exeStatus findValue	(HMap* map, void* key, void** value)
 exeStatus forEach(HMap* map, ForEachElem_u foreachFunc)
 {
 	size_t i = 0;
-	int counter = 0;
 	for(i = 0; i < map->m_capacity; ++i)
 	{	
-		if (map->m_bucket[i] == NULL)
-		{
-			printf("map->m_bucket[%ld] == NULL\n", i);
-		}else{
-
-			foreachFunc(map->m_bucket[i]->m_key, map->m_bucket[i]->m_value);
-			printf("counter = %d\n", ++counter);
-		}
+		foreachFunc(map->m_buckets[i]->m_key, map->m_buckets[i]->m_value);
 	}
 	return OK;
 }
@@ -139,30 +141,34 @@ size_t get_noe(HMap* map)
 {
 	return map->m_noe;
 }
+size_t get_collisions(HMap* map)
+{
+	return map->m_collisions;
+}
 
-static exeStatus probing(HMap* map, Element* element)
+static size_t probing(HMap* map, void* key, void** ret_key)
 {
 	size_t index = -1;
 	int collisions = 0;
-	//Element** temp = NULL;
+	size_t capacity = map->m_capacity;
 
-	element->m_next = NULL;
+	index = map->m_hashFunc(key)%capacity;
 
-	index = map->m_hashFunc(element->m_key)%map->m_capacity;
-
-	while(map->m_bucket[index+collisions] != NULL)
+	while(map->m_buckets[(index+collisions)%capacity] != NULL)
 	{
+		if (map->m_compareFunc(key, map->m_buckets[(index+collisions)%capacity]->m_key))
+		{
+			*ret_key = map->m_buckets[(index+collisions)%capacity]->m_key;
+			return (index+collisions)%capacity;
+		}
 		collisions++;
 	}
-	if (collisions > 0)
-	{
-		printf("collisions = %d\n", collisions);
-	}
-	
-	map->m_bucket[index+collisions] = element;
+
 	map->m_noe++;
-	map->m_collisions = (map->m_collisions<collisions)?collisions:map->m_collisions;
-	return OK;
+	map->m_collisions = (map->m_collisions<(size_t)collisions)?collisions:map->m_collisions;
+	*ret_key = NULL;
+
+	return (index+collisions)%capacity;
 }
 
 /****************MAIN*/
@@ -172,33 +178,46 @@ int main(int argc, char const *argv[])
 	HMap* map = 0;
 	int i = 0;
 	printf("Map testing\n");
-	char key[6] = {'a', 'a', 'a', 'a', 'a', '\0'};
-	char value[6] = {'z', 'z', 'z', 'z', 'z', '\0'};
+	char key[8];
+	char value[8];
+	int j = 0;
 
+	srand(time(0));
 	
-	int size = 126;
-	map = createHMap(size, djb2, comparing);
-	for (i = 0; i < size; ++i)
+	int size = atoi(argv[1]);
+	map = createHMap(size, djb2, are_equal);
+	if (map)
 	{
-		key[i%5]++;
-		value[i%5]--;
-		add_by_value(map, (void*)key, 5, (void*)value, 5);
+		for (i = 0; i < size; ++i)
+		{
+			for(j = 0; j < 7; j++)
+			{
+				key[j] = (char)((rand()%(122-97+1))+97);
+				value[j] = (char)((rand()%(122-97+1))+97);
+			}
+		key[j] = '\0';
+		value[j] = '\0';
+		add_by_value(map, (void*)key, 8, (void*)value, 8);
 	}
+
 	printf("NOE = %ld\n", get_noe(map));
-	forEach(map, eachelem);
+	printf("Collisions = %ld\n", get_collisions(map) );
+	//forEach(map, eachelem);
+	}
+
 	
 
 	return 0;
 }
 
-exeStatus comparing(void* key_1, void* key_2)
+static int are_equal(void* key_1, void* key_2)
 {
-	return OK;
+	return !strcmp((char*)key_1, (char*)key_2);
 }
 
 exeStatus eachelem(void* key, void* value)
 {	
-	printf("Key = %s\nValue = %s\n",(char*) key, (char*) value);
+	printf("%s\n",(char*) key);
 	return OK;
 }
 

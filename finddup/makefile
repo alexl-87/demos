@@ -22,7 +22,7 @@ clean:
 
 .PHONY: test
 test:
-	gcc -pedantic -Wall -Werror -g H_hash_new.c -o maptest
+	g++ -pedantic -Wall -Werror -g H_hash_new.c -o maptest
 	sleep 0.2
 	clear
 	gdb ./maptest
