@@ -19,19 +19,3 @@ FindDup.o : FindDuplicate.c FindDuplicate.h DirWalk.h H_Hash.h MD5_calculator.h
 .PHONY: clean
 clean:
 	rm -f *.o
-
-.PHONY: test
-test:
-	g++ -pedantic -Wall -Werror -g H_hash_new.c -o maptest
-	sleep 0.2
-	clear
-	gdb ./maptest
-
-.PHONY: git
-git:
-	git commit -m "`date`" -a
-	@wait
-	git push
-	@wait
-	@echo Git Done!!!
-

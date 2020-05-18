@@ -26,10 +26,10 @@ exeStatus createHashMap(unsigned long capacity, userHashFunction hashFunc, userC
 
 	if(!hashFunc || !compareFunc || !hMap || capacity < 1) return paramE;
 
-	newMap = (HashMap*)malloc(sizeof(HashMap));
+	newMap = malloc(sizeof(HashMap));
 	if(!newMap) return mallocE;
 
-	newMap->m_bucket = (HashMapNode*)calloc(capacity*1.5, sizeof(HashMapNode*));
+	newMap->m_bucket = calloc(capacity*1.5, sizeof(HashMapNode*));
 	if(!newMap->m_bucket)
 	{
 		free(newMap);

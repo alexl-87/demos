@@ -1,3 +1,4 @@
+
 #ifndef H_Hash
 #define H_Hash
 
